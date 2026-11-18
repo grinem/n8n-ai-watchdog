@@ -3,7 +3,7 @@
   "nodes": [
     {
       "parameters": {
-        "content": "## Quick Setup (30 Seconds)\n1. Set this workflow as your instance **Error Workflow** (`Workflow Settings -> Error Workflow`) or call it as a Sub-Workflow when an AI Agent returns `[]` or invalid JSON.\n2. The **Local Secret Scrubber** runs 100% inside your n8n instance and strips API keys (`sk_`, `ghp_`, `re_`, `whsec_`, JWTs, Bearer tokens, emails) BEFORE any alert leaves.\n3. Connect your Slack, Telegram, Discord, or Email node to **Format Diagnostic Alert**.\n\nDocs & Post-Mortems: https://n8n-production-incident-fixes.pages.dev",
+        "content": "## Quick Setup (30 Seconds)\n1. Set this workflow as your instance **Error Workflow** (`Workflow Settings -> Error Workflow`) or call it as a Sub-Workflow when an AI Agent returns `[]` or invalid JSON.\n2. The **Local Secret Scrubber** runs 100% inside your n8n instance and strips API keys (`sk_`, `ghp_`, `re_`, `whsec_`, JWTs, Bearer tokens, emails) BEFORE any alert leaves.\n3. Connect your Slack, Telegram, Discord, or Email node to **Format Diagnostic Alert**.\n\nDocs & Post-Mortems: https://hooktriage.com",
         "height": 260,
         "width": 430,
         "color": 4

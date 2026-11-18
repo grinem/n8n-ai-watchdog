@@ -3,7 +3,7 @@
 Catch silent workflow crashes, empty AI Agent responses (`[]`), `429` Shopify/OpenAI rate-limit drops, and OAuth token deadlocks in n8n **before your clients do** — with **100% local secret scrubbing** and **zero external dependencies**.
 
 > 🔍 Need to scan an existing n8n workflow export before shipping?
-> Run our **[Free Client-Side Workflow Audit (0 bytes leave your browser)](https://n8n-production-incident-fixes.pages.dev/#triage)** or browse **[100+ Real Production Post-Mortems](https://n8n-production-incident-fixes.pages.dev/)**.
+> Run our **[Free Client-Side Workflow Audit (0 bytes leave your browser)](https://hooktriage.com/#triage)** or browse **[100+ Real Production Post-Mortems](https://hooktriage.com/)**.
 
 ---
 
@@ -59,8 +59,8 @@ n8n's native `Error Trigger` only fires on unhandled exceptions — **not** when
 
 ## 📚 Related Resources
 
-- **[n8n & AI Automation Incident Fixes Knowledge Base](https://n8n-production-incident-fixes.pages.dev/)** — 100+ verified root-cause post-mortems across `n8n`, `Dify`, `Flowise`, `Activepieces`, `Make`, and webhooks.
-- **[Client-Side n8n Workflow Pre-Check & Async Audit](https://n8n-production-incident-fixes.pages.dev/#triage)** — Instantly detect missing timeouts, missing retries, and unprotected error paths in your JSON.
+- **[n8n & AI Automation Incident Fixes Knowledge Base](https://hooktriage.com/)** — 100+ verified root-cause post-mortems across `n8n`, `Dify`, `Flowise`, `Activepieces`, `Make`, and webhooks.
+- **[Client-Side n8n Workflow Pre-Check & Async Audit](https://hooktriage.com/#triage)** — Instantly detect missing timeouts, missing retries, and unprotected error paths in your JSON.
 
 ## 📄 License
 
