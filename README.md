@@ -70,3 +70,4 @@ n8n's native `Error Trigger` only fires on unhandled exceptions — **not** when
 
 - **1-Click AI Agent Skill (Claude Code / Cursor / Copilot — Free, Security Scanned):** [Install HookTriage on Agensi](https://www.agensi.io/r/HOOKTRIAGE?to=/skills/hooktriage-n8n-webhook-silent-failure-auditor&utm_source=github)
 - **Zero-Install Local CLI & MCP Server (MIT):** `npx -y github:grinem/hooktriage scan ./workflow.json` ([`grinem/hooktriage`](https://github.com/grinem/hooktriage))
+- **Ready-to-Import Pro Hardening Kit ($27 — 4 n8n/Shopify/Stripe/AI Agent Blueprints):** [Pay by Card via Agensi](https://www.agensi.io/r/HOOKTRIAGE?to=/skills/hooktriage-n8n-production-hardening-kit&utm_source=github) · [Direct Crypto Checkout](https://hooktriage.com/#hardening-kit)
