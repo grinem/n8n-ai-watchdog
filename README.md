@@ -65,3 +65,8 @@ n8n's native `Error Trigger` only fires on unhandled exceptions — **not** when
 ## 📄 License
 
 [MIT](./LICENSE) — free for commercial, agency, and self-hosted deployments.
+
+## 🧩 Audit Workflows Locally Before Production (CLI, MCP & AI Agent Skill)
+
+- **1-Click AI Agent Skill (Claude Code / Cursor / Copilot — Free, Security Scanned):** [Install HookTriage on Agensi](https://www.agensi.io/r/HOOKTRIAGE?to=/skills/hooktriage-n8n-webhook-silent-failure-auditor&utm_source=github)
+- **Zero-Install Local CLI & MCP Server (MIT):** `npx -y github:grinem/hooktriage scan ./workflow.json` ([`grinem/hooktriage`](https://github.com/grinem/hooktriage))
