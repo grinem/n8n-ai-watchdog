@@ -1,60 +1,139 @@
 {
-  "name": "n8n Silent-Failure & AI Agent Watchdog (Zero-Trust)",
+  "name": "Zero-Trust Production Incident Watchdog, HTTP-200 Soft-Error Guard & DLQ Replay",
   "nodes": [
     {
       "parameters": {
-        "content": "## Quick Setup (30 Seconds)\n1. Set this workflow as your instance **Error Workflow** (`Workflow Settings -> Error Workflow`) or call it as a Sub-Workflow when an AI Agent returns `[]` or invalid JSON.\n2. The **Local Secret Scrubber** runs 100% inside your n8n instance and strips API keys (`sk_`, `ghp_`, `re_`, `whsec_`, JWTs, Bearer tokens, emails) BEFORE any alert leaves.\n3. Connect your Slack, Telegram, Discord, or Email node to **Format Diagnostic Alert**.\n\nDocs & Post-Mortems: https://hooktriage.com",
-        "height": 260,
-        "width": 430,
+        "content": "## 🛡️ Zero-Trust Production Incident Watchdog & HTTP-200 Soft-Error Guard\n### How it works\nThis template protects production n8n instances against **both hard crashes and silent 'false-green' failures** across 3 automated branches:\n1. **Branch 1 (Active HTTP-200 & AI Output Assertion):** Call via `Execute Sub-workflow` after critical HTTP Request or AI Agent nodes. Catches APIs that return `HTTP 200 OK` with an error buried in the JSON body (`error`, `errors[]`, `ok: false`, empty items, or missing required fields).\n2. **Branch 2 (Zero-Trust Secret Scrubber & 15m Alert-Storm Deduplicator):** Strips API keys (`sk_live_`, `ghp_`, `whsec_`, JWTs, Bearer tokens, emails) locally in memory and suppresses duplicate alert storms within a 15-minute window.\n3. **Branch 3 (Severity Router, Exponential Backoff & Dead-Letter Queue):** Separates transient `429 / 502 / 503 / Timeout` failures (computes exponential backoff + jitter & stages a DLQ replay payload) from critical schema/auth breaks.",
+        "height": 310,
+        "width": 540,
         "color": 4
       },
-      "id": "sticky-setup-guide",
-      "name": "Setup Guide (Read First)",
+      "id": "sticky-overview-v2",
+      "name": "Sticky Note — Architecture & How It Works",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        160,
-        20
+        120,
+        -40
       ]
     },
     {
       "parameters": {
-        "content": "## Security Audit Guarantee\n- 100% Native n8n Nodes (`Error Trigger`, `Code`, `Set`)\n- **Zero external HTTP calls by default** (your keys never leave your server)\n- Detects both hard crashes and silent failures (empty arrays `[]`, HTTP `429` rate limits, `401/403` OAuth token deadlocks)",
-        "height": 220,
-        "width": 380,
+        "content": "### ⚡ Setup in 2 Minutes\n1. **Instance Error Workflow:** Open any production workflow -> *Settings* -> set **Error Workflow** to this workflow.\n2. **Inline HTTP-200 Assertion (Optional):** Call this workflow via `Execute Sub-workflow` right after critical HTTP/GraphQL/AI nodes.\n3. **Connect Your Alert Channel:** Attach Slack, Telegram, Discord, or Email to the final outputs on the right.\n\n*Built by @grinem — Open-Source MIT Diagnostic Suite: https://github.com/grinem/n8n-ai-watchdog*",
+        "height": 250,
+        "width": 440,
         "color": 6
       },
-      "id": "sticky-security-audit",
-      "name": "Zero-Trust Security Guarantee",
+      "id": "sticky-setup-v2",
+      "name": "Sticky Note — Setup Steps",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        630,
-        40
+        700,
+        -40
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 🔍 Branch 1: 'False-Green' HTTP-200 Deep Body Inspector\nAPIs like GraphQL, legacy REST, or rate-limited webhooks often return `HTTP 200` with `{\"ok\": false}` or `{\"errors\": [...]}` buried in the payload. This branch inspects the response body and throws a structured incident if silent corruption is detected.",
+        "height": 180,
+        "width": 520,
+        "color": 5
+      },
+      "id": "sticky-branch1-v2",
+      "name": "Sticky Note — Branch 1 HTTP 200 Guard",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        120,
+        620
+      ]
+    },
+    {
+      "parameters": {
+        "content": "### 🔒 Branch 2 & 3: Local Secret Scrubber, 15m Dedup & DLQ Backoff\n- **0 bytes leave your n8n server** during scrubbing.\n- **15m Fingerprint Lock** prevents 500 identical Slack/Email alerts during an outage.\n- **Transient vs Critical Split** computes exponential backoff + jitter for `429/5xx`.",
+        "height": 180,
+        "width": 520,
+        "color": 3
+      },
+      "id": "sticky-branch23-v2",
+      "name": "Sticky Note — Scrubber, Dedup & DLQ",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        700,
+        620
       ]
     },
     {
       "parameters": {},
-      "id": "watchdog-error-trigger",
-      "name": "Error Trigger",
+      "id": "node-error-trigger",
+      "name": "Error Trigger (Hard Crashes)",
       "type": "n8n-nodes-base.errorTrigger",
       "typeVersion": 1,
       "position": [
-        220,
-        340
+        180,
+        320
       ]
     },
     {
       "parameters": {
-        "jsCode": "// Zero-Trust Local Secret & PII Scrubber + Root-Cause Classifier\n// Runs 100% locally inside your n8n instance.\nconst scrub = (val) => {\n  if (!val) return \"\";\n  return String(val)\n    .replace(/\\b(sk_live_|sk_test_|sk-|re_|ghp_|gho_|whsec_|xox[baprs]-|AIza)[A-Za-z0-9_/+=-]{10,}\\b/g, \"[REDACTED_KEY]\")\n    .replace(/\\bAKIA[0-9A-Z]{16}\\b/g, \"[REDACTED_AWS]\")\n    .replace(/\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{6,}\\b/g, \"[REDACTED_JWT]\")\n    .replace(/(Bearer\\s+)[A-Za-z0-9._-]{12,}/gi, \"$1[REDACTED_TOKEN]\")\n    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g, \"[REDACTED_EMAIL]\")\n    .slice(0, 2200);\n};\n\nconst classifyHint = (msg, nodeName) => {\n  const m = (msg || \"\").toLowerCase();\n  if (m.includes(\"429\") || m.includes(\"rate limit\")) {\n    return \"API Rate Limit (429): Enable Retry On Fail + Exponential Backoff (2s-8s) + split batch size.\";\n  }\n  if (m.includes(\"401\") || m.includes(\"403\") || m.includes(\"oauth\") || m.includes(\"token\")) {\n    return \"Auth / OAuth Deadlock: Token expired or missing scope; verify refresh token lock under concurrent runs.\";\n  }\n  if (m.includes(\"timeout\") || m.includes(\"econnreset\") || m.includes(\"504\") || m.includes(\"502\")) {\n    return \"Upstream Timeout / 5xx: Add HTTP Request timeout cap + fallback Respond to Webhook before 5s platform cutoffs.\";\n  }\n  if (m.includes(\"json\") || m.includes(\"unexpected\") || m.includes(\"empty\")) {\n    return \"Silent Output / Schema Drift: Guard AI Agent / JSON Parse output with fallback IF node before downstream writes.\";\n  }\n  return `Inspect '${nodeName}' input schema, add timeout/retry options, and capture failed item ID for dead-letter replay.`;\n};\n\nconst item = $input.first().json || {};\nconst wf = item.workflow || {};\nconst ex = item.execution || {};\nconst err = ex.error || item.error || {};\nconst lastNode = scrub(ex.lastNodeExecuted || (err.node && err.node.name) || item.last_node || \"Unknown Node\").slice(0, 120);\nconst errMsg = scrub(err.message || item.message || \"Silent workflow failure or unexpected empty output\");\n\nreturn [{\n  json: {\n    timestamp_utc: new Date().toISOString(),\n    workflow_id: String(wf.id || \"unknown\").slice(0, 40),\n    workflow_name: scrub(wf.name || item.workflow_name || \"Unnamed n8n Workflow\").slice(0, 140),\n    execution_id: String(ex.id || \"n/a\").slice(0, 40),\n    last_node: lastNode,\n    error_message: errMsg,\n    recommended_fix_hint: classifyHint(errMsg, lastNode),\n    execution_url: ex.url ? scrub(ex.url) : \"Check n8n Executions tab\"\n  }\n}];"
+        "inputSource": "passthrough"
       },
-      "id": "watchdog-local-scrubber",
-      "name": "Zero-Trust Local Scrubber & Classifier",
+      "id": "node-subworkflow-trigger",
+      "name": "Sub-Workflow Trigger (Inspect HTTP 200 / AI Output)",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        180,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Branch 1: Deep 'False-Green' HTTP-200 Body & Schema Assertion\n// Detects APIs returning HTTP 200 OK with buried errors, empty arrays, or missing required fields.\nconst items = $input.all();\nconst first = (items[0] && items[0].json) ? items[0].json : {};\nconst body = first.body || first.data || first.response || first;\n\nconst reasons = [];\nif (!items.length || Object.keys(first).length === 0) {\n  reasons.push('Empty JSON object returned after HTTP 200');\n}\nif (body && typeof body === 'object') {\n  if (body.ok === false || body.success === false) {\n    reasons.push(`API returned explicit failure flag (ok/success=false): ${body.error || body.message || 'unknown'}`);\n  }\n  if (typeof body.error === 'string' && body.error.trim() !== '') {\n    reasons.push(`Buried error string in HTTP 200 body: ${body.error}`);\n  }\n  if (Array.isArray(body.errors) && body.errors.length > 0) {\n    const e0 = body.errors[0];\n    reasons.push(`GraphQL/REST errors[] array present in HTTP 200: ${typeof e0 === 'object' ? (e0.message || JSON.stringify(e0)) : e0}`);\n  }\n  if (typeof body.status === 'string' && ['error', 'failed', 'fail', 'rate_limited'].includes(body.status.toLowerCase())) {\n    reasons.push(`Buried status='${body.status}' in HTTP 200 payload`);\n  }\n  // Optional required fields list passed in _assert_required: ['id', 'email']\n  if (Array.isArray(first._assert_required)) {\n    for (const reqKey of first._assert_required) {\n      if (body[reqKey] === undefined || body[reqKey] === null || body[reqKey] === '') {\n        reasons.push(`Missing required field '${reqKey}' in HTTP 200 response`);\n      }\n    }\n  }\n}\n\nreturn [{\n  json: {\n    ...first,\n    _silent_failure_detected: reasons.length > 0,\n    _silent_failure_reason: reasons.join(' | ') || 'OK',\n    _checked_at: new Date().toISOString(),\n    error: reasons.length > 0 ? {\n      message: `[SILENT_HTTP_200_FAILURE] ${reasons.join(' | ')}`,\n      node: { name: first._source_node || 'HTTP / AI Sub-Workflow Guard' }\n    } : undefined\n  }\n}];"
+      },
+      "id": "node-http200-inspector",
+      "name": "HTTP 200 Deep Body & Schema Assertion",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        500,
-        340
+        450,
+        840
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-silent-err",
+              "leftValue": "={{ $json._silent_failure_detected }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-silent-error",
+      "name": "IF Silent HTTP-200 Error Detected?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        710,
+        840
       ]
     },
     {
@@ -62,32 +141,195 @@
         "assignments": {
           "assignments": [
             {
-              "id": "alert-title-field",
-              "name": "alert_title",
+              "id": "clean-status",
+              "name": "_watchdog_assertion",
               "type": "string",
-              "value": "=[n8n Watchdog] {{ $json.workflow_name }} \u2014 Node: {{ $json.last_node }}"
-            },
-            {
-              "id": "alert-body-field",
-              "name": "alert_message",
-              "type": "string",
-              "value": "=Workflow: {{ $json.workflow_name }} ({{ $json.workflow_id }})\nExecution: {{ $json.execution_id }} | Failed Node: {{ $json.last_node }}\nSanitized Error: {{ $json.error_message }}\nQuick Triage Hint: {{ $json.recommended_fix_hint }}\nRef: {{ $json.execution_url }}"
+              "value": "PASSED_CLEAN_200"
             }
           ]
-        }
+        },
+        "includeOtherFields": true,
+        "options": {}
       },
-      "id": "watchdog-format-alert",
-      "name": "Format Diagnostic Alert (Connect Slack / Telegram / Email)",
+      "id": "node-clean-passthrough",
+      "name": "Pass Through Verified Clean Payload",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
-        780,
-        340
+        980,
+        960
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Branch 2: Zero-Trust Local Secret & PII Scrubber + Root-Cause Classifier + Fingerprint\nconst scrub = (val) => {\n  if (!val) return '';\n  return String(val)\n    .replace(/\\b(sk_live_|sk_test_|sk-|re_|ghp_|gho_|whsec_|xox[baprs]-|AIza)[A-Za-z0-9_/+=-]{10,}\\b/g, '[REDACTED_KEY]')\n    .replace(/\\bAKIA[0-9A-Z]{16}\\b/g, '[REDACTED_AWS]')\n    .replace(/\\beyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{6,}\\b/g, '[REDACTED_JWT]')\n    .replace(/(Bearer\\s+)[A-Za-z0-9._-]{12,}/gi, '$1[REDACTED_TOKEN]')\n    .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}/g, '[REDACTED_EMAIL]')\n    .slice(0, 2200);\n};\n\nconst classify = (msg, nodeName) => {\n  const m = (msg || '').toLowerCase();\n  if (m.includes('429') || m.includes('rate limit') || m.includes('too many requests')) {\n    return { category: 'TRANSIENT_RATE_LIMIT_429', is_transient: true, hint: 'Enable Retry On Fail + Exponential Backoff (2s-16s) + split batch size.' };\n  }\n  if (m.includes('timeout') || m.includes('econnreset') || m.includes('502') || m.includes('503') || m.includes('504')) {\n    return { category: 'TRANSIENT_UPSTREAM_5XX_TIMEOUT', is_transient: true, hint: 'Upstream timeout/5xx: stage payload in DLQ and replay after backoff.' };\n  }\n  if (m.includes('silent_http_200_failure')) {\n    return { category: 'SILENT_HTTP_200_BODY_ERROR', is_transient: false, hint: 'Upstream returned HTTP 200 with buried error/empty body. Inspect raw payload and schema.' };\n  }\n  if (m.includes('401') || m.includes('403') || m.includes('oauth') || m.includes('scope')) {\n    return { category: 'CRITICAL_AUTH_OR_SCOPE', is_transient: false, hint: 'Credential expired, revoked, or missing project scope.' };\n  }\n  return { category: 'CRITICAL_WORKFLOW_EXCEPTION', is_transient: false, hint: `Verify '${nodeName}' input schema and guard nullable properties.` };\n};\n\nconst item = $input.first().json || {};\nconst wf = item.workflow || {};\nconst ex = item.execution || {};\nconst err = ex.error || item.error || {};\nconst lastNode = scrub(ex.lastNodeExecuted || (err.node && err.node.name) || item.last_node || 'Unknown Node').slice(0, 120);\nconst errMsg = scrub(err.message || item._silent_failure_reason || item.message || 'Unclassified workflow failure');\nconst wfId = String(wf.id || item.workflow_id || 'local').slice(0, 40);\nconst wfName = scrub(wf.name || item.workflow_name || 'Production n8n Workflow').slice(0, 140);\nconst info = classify(errMsg, lastNode);\n\n// Deterministic fingerprint (workflow + node + normalized error prefix)\nconst normErr = errMsg.replace(/\\d+/g, '#').slice(0, 90);\nconst fingerprint = `${wfId}::${lastNode}::${info.category}::${normErr}`;\n\nreturn [{\n  json: {\n    timestamp_utc: new Date().toISOString(),\n    workflow_id: wfId,\n    workflow_name: wfName,\n    execution_id: String(ex.id || item.execution_id || 'sub-exec').slice(0, 40),\n    last_node: lastNode,\n    failure_category: info.category,\n    is_transient: info.is_transient,\n    error_message: errMsg,\n    recommended_fix_hint: info.hint,\n    incident_fingerprint: fingerprint,\n    execution_url: ex.url ? scrub(ex.url) : 'Check n8n Executions tab'\n  }\n}];"
+      },
+      "id": "node-scrubber-v2",
+      "name": "Zero-Trust Local Scrubber & Classifier",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 15-Minute Alert-Storm Deduplicator using workflow static data\nconst item = $input.first().json || {};\nconst fp = item.incident_fingerprint || 'default';\nconst nowMs = Date.now();\nconst windowMs = 15 * 60 * 1000; // 15 minutes\n\nconst state = $getWorkflowStaticData('global');\nif (!state.seenFingerprints) {\n  state.seenFingerprints = {};\n}\n\n// Prune expired entries\nfor (const [k, ts] of Object.entries(state.seenFingerprints)) {\n  if (nowMs - Number(ts) > windowMs) {\n    delete state.seenFingerprints[k];\n  }\n}\n\nconst lastSeen = state.seenFingerprints[fp];\nconst isDuplicateStorm = Boolean(lastSeen && (nowMs - Number(lastSeen) <= windowMs));\nif (!isDuplicateStorm) {\n  state.seenFingerprints[fp] = nowMs;\n}\n\nreturn [{\n  json: {\n    ...item,\n    is_duplicate_storm: isDuplicateStorm,\n    dedup_window_minutes: 15\n  }\n}];"
+      },
+      "id": "node-dedup-storm",
+      "name": "15m Alert-Storm Deduplicator",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        940,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-not-dup",
+              "leftValue": "={{ $json.is_duplicate_storm }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "false",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-unique-incident",
+      "name": "IF Unique Incident (Not Throttled)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1190,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cond-is-transient",
+              "leftValue": "={{ $json.is_transient }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-if-transient",
+      "name": "Route: Transient (429/5xx) vs Critical?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Branch 3A: Compute Exponential Backoff + Jitter & Stage DLQ Replay Envelope\nconst item = $input.first().json || {};\nconst attempt = Number(item.retry_attempt || 1);\nconst baseSec = Math.min(60, Math.pow(2, attempt) * 2);\nconst jitterSec = Math.floor(Math.random() * 4) + 1;\nconst backoffSeconds = baseSec + jitterSec;\n\nreturn [{\n  json: {\n    ...item,\n    dlq_status: 'STAGED_FOR_BACKOFF_REPLAY',\n    retry_attempt: attempt,\n    backoff_seconds: backoffSeconds,\n    next_replay_utc: new Date(Date.now() + backoffSeconds * 1000).toISOString()\n  }\n}];"
+      },
+      "id": "node-backoff-dlq",
+      "name": "Compute Backoff + Stage DLQ Replay Record",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1710,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "dlq-alert-title",
+              "name": "alert_title",
+              "type": "string",
+              "value": "=[n8n DLQ Backoff] {{ $json.workflow_name }} — {{ $json.failure_category }}"
+            },
+            {
+              "id": "dlq-alert-body",
+              "name": "alert_message",
+              "type": "string",
+              "value": "=Transient Failure Staged in DLQ: {{ $json.workflow_name }} (Node: {{ $json.last_node }})\nCategory: {{ $json.failure_category }} | Backoff: {{ $json.backoff_seconds }}s (Next Replay: {{ $json.next_replay_utc }})\nSanitized Error: {{ $json.error_message }}\nAction Hint: {{ $json.recommended_fix_hint }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "node-format-dlq-alert",
+      "name": "Output A — Staged DLQ & Backoff Notice",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1970,
+        180
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "crit-alert-title",
+              "name": "alert_title",
+              "type": "string",
+              "value": "=[n8n CRITICAL] {{ $json.workflow_name }} — Node: {{ $json.last_node }}"
+            },
+            {
+              "id": "crit-alert-body",
+              "name": "alert_message",
+              "type": "string",
+              "value": "=CRITICAL Incident: {{ $json.workflow_name }} ({{ $json.workflow_id }})\nExecution: {{ $json.execution_id }} | Node: {{ $json.last_node }} | Class: {{ $json.failure_category }}\nSanitized Error: {{ $json.error_message }}\nRoot-Cause Fix Hint: {{ $json.recommended_fix_hint }}\nRef: {{ $json.execution_url }}"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "node-format-critical-alert",
+      "name": "Output B — Critical Incident Alert (Connect Slack / Telegram / Email)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1710,
+        440
       ]
     }
   ],
   "connections": {
-    "Error Trigger": {
+    "Error Trigger (Hard Crashes)": {
       "main": [
         [
           {
@@ -98,11 +340,103 @@
         ]
       ]
     },
+    "Sub-Workflow Trigger (Inspect HTTP 200 / AI Output)": {
+      "main": [
+        [
+          {
+            "node": "HTTP 200 Deep Body & Schema Assertion",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP 200 Deep Body & Schema Assertion": {
+      "main": [
+        [
+          {
+            "node": "IF Silent HTTP-200 Error Detected?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Silent HTTP-200 Error Detected?": {
+      "main": [
+        [
+          {
+            "node": "Zero-Trust Local Scrubber & Classifier",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Pass Through Verified Clean Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
     "Zero-Trust Local Scrubber & Classifier": {
       "main": [
         [
           {
-            "node": "Format Diagnostic Alert (Connect Slack / Telegram / Email)",
+            "node": "15m Alert-Storm Deduplicator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "15m Alert-Storm Deduplicator": {
+      "main": [
+        [
+          {
+            "node": "IF Unique Incident (Not Throttled)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Unique Incident (Not Throttled)": {
+      "main": [
+        [
+          {
+            "node": "Route: Transient (429/5xx) vs Critical?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Route: Transient (429/5xx) vs Critical?": {
+      "main": [
+        [
+          {
+            "node": "Compute Backoff + Stage DLQ Replay Record",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Output B — Critical Incident Alert (Connect Slack / Telegram / Email)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compute Backoff + Stage DLQ Replay Record": {
+      "main": [
+        [
+          {
+            "node": "Output A — Staged DLQ & Backoff Notice",
             "type": "main",
             "index": 0
           }
